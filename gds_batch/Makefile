@@ -68,7 +68,7 @@ release_samples:
 	docker run -v `pwd`/../../:/nvme-direct:rw --rm -it $(DOCKER_BUILD_REPO) sh -c "cd /nvme-direct/tools/samples;$(MAKE) build"
 	@echo "Release samples Built"
 
-build: cufile_bread cu_bread
+build: cufile_bread
 
 
 %: %.cc $(CUFILE_INCLUDE_PATH)/cufile.h

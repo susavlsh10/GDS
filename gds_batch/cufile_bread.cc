@@ -65,6 +65,8 @@ int main(int argc, char *argv[]) {
 	const size_t size = MAX_BUFFER_SIZE * io_size;
 
     std::cout << "IO size = " << size << " Bytes" <<std::endl;
+    std::cout << "Number of batches to read = " << NUM_BATCH << std::endl;
+    
 
     CUfileError_t status;
 
@@ -77,11 +79,13 @@ int main(int argc, char *argv[]) {
 
 	CUfileIOEvents_t io_batch_events[MAX_BATCH_IOS];
 
-    float *CPUPtr[NUM_BATCH];
+    //float *CPUPtr[NUM_BATCH];
 
 	unsigned int i = 0;
     unsigned int j = 0;
-    unsigned int k = 0;
+    //unsigned int k = 0;
+
+    
 
     for ( j = 0; j < NUM_BATCH; j++){
         fd[j] = (int *) malloc(sizeof(int)* MAX_BATCH_IOS);
@@ -122,7 +126,7 @@ int main(int argc, char *argv[]) {
 			<< cuFileGetErrorString(status) << std::endl;
                 return -1;
         }
-	//std::cout << "opening file " << TESTFILE << std::endl;
+	std::cout << "Reading from file " << TESTFILE << std::endl;
 	
 	batch_size = atoi(argv[3]);
 	
@@ -227,6 +231,9 @@ int main(int argc, char *argv[]) {
             std::cerr << "Error in IO Batch Submit" << std::endl;
             goto out3;
 	    }
+
+        std::cout<< "Batch " << j << " submitted at " << (double) (clock() - start) / CLOCKS_PER_SEC << " s" <<std::endl;
+
     }
     /*
 	errorBatch[0] = cuFileBatchIOSubmit(batch_id[0], batch_size, io_batch_params[0], flags);
