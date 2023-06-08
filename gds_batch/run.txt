@@ -1,0 +1,1 @@
+./cufile_bread /home/grads/s/sls7161/nvme/float_save/float_268435456_a.dat 0 128 16 2
