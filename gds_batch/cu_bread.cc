@@ -39,17 +39,39 @@
 using namespace std;
 
 #define MAX_BUFFER_SIZE 4096
-#define MAX_BATCH_IOS 512
-#define MAX_NR 16
+#define MAX_BATCH_IOS 128
+#define MAX_NR 8
 
 #define MB(x) ((x)*1024*1024L)
 #define GB(x) ((x)*1024*1024*1024L)
 
+typedef struct thread_data
+{
+    CUfileIOParams_t *io_batch_params;
+    CUfileBatchHandle_t batch_id;
+    int j; int batch_offset; int size; int batch_size;
+    clock_t start;
+
+}thread_data_t;
+
+static void *thread_batch_io(void *data)
+{
+    thread_data_t *t = (thread_data_t *)data;
+
+    cudaSetDevice(0);
+
+    CUfileError_t errorBatch = cuFileBatchIOSubmit(t->batch_id, t->batch_size, t->io_batch_params, 0);
+    std::cout<< "Thread " << t->j << "submitted batch at "<< (double) (clock() - t->start) / CLOCKS_PER_SEC << " s" <<std::endl;
+    if(errorBatch.err != 0) {
+        std::cerr << "Error in IO Batch Submit" << std::endl;
+    }    
+    pthread_exit(NULL);
+}
 
 
 int main(int argc, char *argv[]) {
     if(argc < 5) {
-                std::cerr << argv[0] << " <filepath> <gpuid> <num batch entries> <num of batches> <x = io scale (4096*x)>"<< std::endl;
+                std::cerr << argv[0] << " <filepath> <gpuid> <num batch entries> <num of batches> <io size>"<< std::endl;
                 exit(1);
         }
     unsigned int NUM_BATCH = atoi(argv[4]);
@@ -65,8 +87,6 @@ int main(int argc, char *argv[]) {
 	const size_t size = MAX_BUFFER_SIZE * io_size;
 
     std::cout << "IO size = " << size << " Bytes" <<std::endl;
-    std::cout << "Number of batches to read = " << NUM_BATCH << std::endl;
-    
 
     CUfileError_t status;
 
@@ -79,13 +99,14 @@ int main(int argc, char *argv[]) {
 
 	CUfileIOEvents_t io_batch_events[MAX_BATCH_IOS];
 
+    pthread_t threads[NUM_BATCH];
+    thread_data t[NUM_BATCH];
+
     //float *CPUPtr[NUM_BATCH];
 
 	unsigned int i = 0;
     unsigned int j = 0;
     //unsigned int k = 0;
-
-    
 
     for ( j = 0; j < NUM_BATCH; j++){
         fd[j] = (int *) malloc(sizeof(int)* MAX_BATCH_IOS);
@@ -96,8 +117,7 @@ int main(int argc, char *argv[]) {
 
     }    
 
-
-	unsigned int flags = 0;
+	//unsigned int flags = 0;
     CUstream stream;
 	CUfileError_t errorBatch[NUM_BATCH]; 
 	CUfileBatchHandle_t batch_id[NUM_BATCH]; 
@@ -126,7 +146,7 @@ int main(int argc, char *argv[]) {
 			<< cuFileGetErrorString(status) << std::endl;
                 return -1;
         }
-	std::cout << "Reading from file " << TESTFILE << std::endl;
+	//std::cout << "opening file " << TESTFILE << std::endl;
 	
 	batch_size = atoi(argv[3]);
 	
@@ -215,26 +235,37 @@ int main(int argc, char *argv[]) {
     }
 
     /* Setting the read offset batch */
-    start = clock();
     for (j =0; j < NUM_BATCH; j++){
         for(i = 0; i < batch_size; i++) {
+            //io_batch_params[j][i].u.batch.file_offset = offsets[j*batch_size + i];
             io_batch_params[j][i].u.batch.file_offset = batch_offset*j + i * size;
+            //io_batch_params[j][i].u.batch.devPtr_base = devPtr[j][i];
         }
     }
+    
+    std::cout << "Reading from storage " << std::endl;
+    start = clock();
+    for (j =0; j < NUM_BATCH; j++){
+        t[j].batch_offset = batch_offset;
+        t[j].batch_size = batch_size;
+        t[j].io_batch_params = io_batch_params[j];
+        t[j].batch_id = batch_id[j];
+        t[j].size = size;
+        t[j].j = j;
+        t[j].start = start;
+        pthread_create(&threads[j], NULL, &thread_batch_io, &t[j]);
+    }
+    std::cout << "Waiting " << std::endl;
+    std::cout << "All threads created " <<(double) (clock() - start) / CLOCKS_PER_SEC << std::endl;
+
+    for (j = 0; j < NUM_BATCH; j++) {
+		pthread_join(threads[j], NULL);
+	}
+    std::cout << "All threads joined " <<(double) (clock() - start) / CLOCKS_PER_SEC << std::endl;
 
 	
     
 	//std::cout << "Submitting Batch IO" << std::endl;
-    for (j = 0; j<NUM_BATCH; j++){
-        errorBatch[j] = cuFileBatchIOSubmit(batch_id[j], batch_size, io_batch_params[j], flags);
-        if(errorBatch[j].err != 0) {
-            std::cerr << "Error in IO Batch Submit" << std::endl;
-            goto out3;
-	    }
-
-        std::cout<< "Batch " << j << " submitted at " << (double) (clock() - start) / CLOCKS_PER_SEC << " s" <<std::endl;
-
-    }
     /*
 	errorBatch[0] = cuFileBatchIOSubmit(batch_id[0], batch_size, io_batch_params[0], flags);
     if(errorBatch[0].err != 0) {
@@ -242,11 +273,11 @@ int main(int argc, char *argv[]) {
         goto out3;
     }    
     */
-
-    
     
 	//std::cout << "Batch IO Submitted" << std::endl;
 	//wait for all batches to complete
+    
+    
     for (j = 0; j < NUM_BATCH; j++){
         nr = 0;
         while(num_completed != batch_size) 
@@ -260,9 +291,11 @@ int main(int argc, char *argv[]) {
             }
             //std::cout << "Got events " << nr << std::endl;
             num_completed += nr;
-	}
+	    }
 
     }
+
+
 
 	end = clock();
 	
