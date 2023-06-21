@@ -61,7 +61,7 @@ static void *thread_batch_io(void *data)
     cudaSetDevice(0);
 
     CUfileError_t errorBatch = cuFileBatchIOSubmit(t->batch_id, t->batch_size, t->io_batch_params, 0);
-    std::cout<< "Thread " << t->j << "submitted batch at "<< (double) (clock() - t->start) / CLOCKS_PER_SEC << " s" <<std::endl;
+    std::cout<< "Thread " << t->j << " submitted batch at "<< (double) (clock() - t->start) / CLOCKS_PER_SEC << " s" <<std::endl;
     if(errorBatch.err != 0) {
         std::cerr << "Error in IO Batch Submit" << std::endl;
     }    
@@ -262,21 +262,6 @@ int main(int argc, char *argv[]) {
 		pthread_join(threads[j], NULL);
 	}
     std::cout << "All threads joined " <<(double) (clock() - start) / CLOCKS_PER_SEC << std::endl;
-
-	
-    
-	//std::cout << "Submitting Batch IO" << std::endl;
-    /*
-	errorBatch[0] = cuFileBatchIOSubmit(batch_id[0], batch_size, io_batch_params[0], flags);
-    if(errorBatch[0].err != 0) {
-        std::cerr << "Error in IO Batch Submit" << std::endl;
-        goto out3;
-    }    
-    */
-    
-	//std::cout << "Batch IO Submitted" << std::endl;
-	//wait for all batches to complete
-    
     
     for (j = 0; j < NUM_BATCH; j++){
         nr = 0;
@@ -292,7 +277,6 @@ int main(int argc, char *argv[]) {
             //std::cout << "Got events " << nr << std::endl;
             num_completed += nr;
 	    }
-
     }
 
 
@@ -392,3 +376,14 @@ out1:
 	return ret;
 
 }
+	//std::cout << "Submitting Batch IO" << std::endl;
+    /*
+	errorBatch[0] = cuFileBatchIOSubmit(batch_id[0], batch_size, io_batch_params[0], flags);
+    if(errorBatch[0].err != 0) {
+        std::cerr << "Error in IO Batch Submit" << std::endl;
+        goto out3;
+    }    
+    */
+    
+	//std::cout << "Batch IO Submitted" << std::endl;
+	//wait for all batches to complete
