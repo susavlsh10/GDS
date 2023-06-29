@@ -60,9 +60,9 @@ static void *thread_batch_io(void *data)
     CUfileIOEvents_t io_batch_events[t->batch_size];
 
     cudaSetDevice(0);
-
+    std::cout<< "Thread " << t->j << " beginning at "<< (double) (clock() - t->start) / CLOCKS_PER_SEC << " s" <<std::endl;
     CUfileError_t errorBatch = cuFileBatchIOSubmit(t->batch_id, t->batch_size, t->io_batch_params, 0);
-    std::cout<< "Thread " << t->j << " submitted batch at "<< (double) (clock() - t->start) / CLOCKS_PER_SEC << " s" <<std::endl;
+    std::cout<< "Thread " << t->j << " submitted at "<< (double) (clock() - t->start) / CLOCKS_PER_SEC << " s" <<std::endl;
     if(errorBatch.err != 0) {
         std::cerr << "Error in IO Batch Submit" << std::endl;
     }
@@ -79,7 +79,8 @@ static void *thread_batch_io(void *data)
             }
             //std::cout << "Got events " << nr << std::endl;
             num_completed += nr;
-	    }    
+	    }        
+
     pthread_exit(NULL);
 }
 
@@ -276,31 +277,9 @@ int main(int argc, char *argv[]) {
     for (j = 0; j < NUM_BATCH; j++) {
 		pthread_join(threads[j], NULL);
 	}
+    end = clock();
     std::cout << "All threads joined " <<(double) (clock() - start) / CLOCKS_PER_SEC << std::endl;
     
-    /*
-    for (j = 0; j < NUM_BATCH; j++){
-        nr = 0;
-        while(num_completed != batch_size) 
-        {
-            memset(io_batch_events, 0, sizeof(*io_batch_events));
-            nr = batch_size;
-            errorBatch[j] = cuFileBatchIOGetStatus(batch_id[j], batch_size, &nr, io_batch_events, NULL);	
-            if(errorBatch[j].err != 0) {
-                std::cerr << "Error in IO Batch Get Status" << std::endl;
-                goto out4;
-            }
-            //std::cout << "Got events " << nr << std::endl;
-            num_completed += nr;
-	    }
-    }
-    
-    */
-
-
-
-
-	end = clock();
 	
     //copy the data back to cpu and display it for checking
     /*
